@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>හෙල සැප - Link Unlock</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1b1410; --surface:#2a1f18; --text:#f6ece0; --muted:#b9a794;
+    --accent:#e8a33d; --ok:#5fbf8a; --line:#44352a;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#fbf3e8; --surface:#fff; --text:#2a1a0e; --muted:#7a6552; --line:#e6d6c2; --accent:#c9741a; --ok:#2e8b5e; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;
+       background:var(--bg);color:var(--text);font-family:'Noto Sans Sinhala',system-ui,sans-serif}
+  main{width:100%;max-width:420px}
+  h1{font-size:2.4rem;font-weight:800;margin:0 0 4px;letter-spacing:-.5px}
+  .sub{color:var(--muted);margin:0 0 24px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .step{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .step:last-of-type{margin-bottom:0}
+  .btn{flex:1;border:0;border-radius:10px;padding:14px 16px;font:600 1rem 'Noto Sans Sinhala',sans-serif;
+       background:var(--accent);color:#1b1410;cursor:pointer}
+  .btn:focus-visible{outline:3px solid var(--text);outline-offset:2px}
+  .btn[disabled]{opacity:.55;cursor:not-allowed}
+  .btn.done{background:var(--ok);color:#fff}
+  .msg{min-height:1.5em;margin:14px 0 0;font-size:.95rem;color:var(--muted)}
+  .msg.warn{color:#ff8a6b}
+  .bar{height:6px;background:var(--line);border-radius:99px;margin-top:14px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear}
+  #final{display:none;margin-top:16px}
+  #final a{display:block;text-align:center;text-decoration:none;border-radius:10px;padding:15px;
+           font-weight:800;background:var(--ok);color:#fff}
+  #final a:focus-visible{outline:3px solid var(--text);outline-offset:2px}
+  .bad{display:none;color:#ff8a6b}
+</style>
+</head>
+<body>
+<main>
+  <h1>හෙල සැප</h1>
+  <p class="sub">Video එක ලබාගැනීමට බටන් දෙකම unlock කරන්න.</p>
+
+  <div class="card" id="card">
+    <div class="step">
+      <button class="btn" id="b1" data-ad="0">Unlock 1</button>
+    </div>
+    <div class="step">
+      <button class="btn" id="b2" data-ad="1">Unlock 2</button>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <p class="msg" id="msg">බටන් එක ක්ලික් කරලා Ad එක තත්පර 10ක් බලන්න.</p>
+    <div id="final"><a id="tg" href="#">Telegram Bot එකෙන් Video එක ගන්න</a></div>
+  </div>
+  <p class="bad" id="bad">වලංගු නොවන link එකක්.</p>
+</main>
+
+<script>
+/* ====== මෙතන ඔයාගේ දේවල් දාන්න ====== */
+const BOT_USERNAME = "YOUR_BOT_USERNAME";          // @ නැතිව. උදා: HelaSepaBot
+const AD_LINKS = [
+  "https://YOUR-MONETAG-DIRECT-LINK",               // Button 1 → Monetag Direct Link
+  "https://YOUR-ADSTERRA-DIRECT-LINK"               // Button 2 → Adsterra Direct Link
+];
+const WAIT_SECONDS = 10;
+/* ===================================== */
+
+// Link එක: index.html?v=VIDEO_ID
+const vid = new URLSearchParams(location.search).get("v");
+if(!vid || !/^[A-Za-z0-9_-]{3,40}$/.test(vid)){
+  document.getElementById("card").style.display="none";
+  document.getElementById("bad").style.display="block";
+}
+
+const msg = document.getElementById("msg");
+const bar = document.getElementById("bar");
+const buttons = [document.getElementById("b1"), document.getElementById("b2")];
+const done = [false,false];
+
+let active = null;      // දැනට ක්‍රියාත්මක button index
+let elapsed = 0;        // ad බලපු තත්පර (ms)
+let timer = null;
+let lastTick = 0;
+
+function setBar(){ bar.style.width = Math.min(100, (elapsed/(WAIT_SECONDS*1000))*100) + "%"; }
+
+function startCount(){
+  lastTick = Date.now();
+  clearInterval(timer);
+  timer = setInterval(()=>{
+    // Ad tab එක ඉදිරියෙන් තියෙද්දි (මේ page එක hidden) විතරක් count වෙනවා
+    if(document.hidden){
+      const now = Date.now();
+      elapsed += now - lastTick;
+      lastTick = now;
+      setBar();
+      const left = Math.max(0, Math.ceil((WAIT_SECONDS*1000 - elapsed)/1000));
+      if(elapsed >= WAIT_SECONDS*1000) finish();
+    } else {
+      lastTick = Date.now();
+    }
+  }, 250);
+}
+
+function finish(){
+  clearInterval(timer);
+  done[active] = true;
+  buttons[active].classList.add("done");
+  buttons[active].textContent = "Unlocked ✓";
+  buttons[active].disabled = true;
+  active = null; elapsed = 0; setBar();
+  msg.classList.remove("warn");
+  if(done[0] && done[1]){
+    msg.textContent = "Link එක unlock උනා!";
+    const a = document.getElementById("tg");
+    a.href = "https://t.me/" + BOT_USERNAME + "?start=" + encodeURIComponent(vid);
+    document.getElementById("final").style.display = "block";
+  } else {
+    msg.textContent = "හරි! දැන් ඊළඟ බටන් එක ක්ලික් කරන්න.";
+  }
+}
+
+buttons.forEach((btn,i)=>{
+  btn.addEventListener("click", ()=>{
+    if(done[i]) return;
+    active = i; elapsed = 0; setBar();
+    window.open(AD_LINKS[i], "_blank");
+    msg.classList.remove("warn");
+    msg.textContent = "Ad එක තත්පර " + WAIT_SECONDS + "ක් බලන්න. ඉන්පසු මෙතනට එන්න.";
+    startCount();
+  });
+});
+
+// Ad එක සම්පූර්ණ කරන්න කලින් ආපහු ආවොත් pause කරනවා
+document.addEventListener("visibilitychange", ()=>{
+  if(active === null) return;
+  if(!document.hidden && elapsed < WAIT_SECONDS*1000){
+    const left = Math.ceil((WAIT_SECONDS*1000 - elapsed)/1000);
+    msg.classList.add("warn");
+    msg.textContent = "Ad එක අතරමග නැවැත්තුවා. තව තත්පර " + left + "ක් Ad tab එකේ ඉන්න.";
+  }
+});
+</script>
+</body>
+</html>
